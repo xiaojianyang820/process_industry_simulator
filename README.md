@@ -89,6 +89,144 @@ $$
 
 从动态的估计过程可以看出，尽管多个特征在数据和权重完成卷积运算之后再次进行了组合运算，本文所提出的方法依然可以准确还原出其使用的权重序列，保证所估计出来的结果优于无约束的自由估计以及对波动率进行限制的平滑估计。由于这里使用的强制形状都是weibull分布，所以仿真模型的参数量就从自由估计的80个参数缩减为三个参数（无响应长度，形状参数，尺度参数），大大压缩了模型规模，降低了训练模型所需要的数据量。
 
+## 复杂业务场景下的算法测试
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqVsllqVUIzoXDMCLksPgK6QsGHAzJOjUWphzLrG.8joEM1hSPkAZdCoAngnvwdLsOMyi1IRHQIgIm6a*0G3JjYU!/b&bo=tAS1AgAAAAADByU!&rf=viewer_4)
+
+我们接下来选择一个非常复杂的业务场景进行算法测试。这一个场景是火力发电机组系统，仿真的预测目标是预测凝汽器的真空度，这一指标越高，机组的运行效率就越高。纳入到仿真模型当中的特征一共有27个，分别为：
+
+1. 发电机功率
+2. 4A循环水泵变频器转速
+3. 4A送风机入口空气温度
+4. 一级工业供热流量
+5. 二级工业供热流量
+6. 4A循环水泵电流
+7. 4B循环水泵电流
+8. 循环水泵出口母管压力
+9. 4A凝汽器循环冷却水进口温度1
+10. 4A凝汽器循环冷却水出口温度
+11. 4B凝汽器循环冷却水出口温度
+12. 冷却塔水位
+13. 汽机低压缸排气温度-1
+14. 汽机低压缸排气温度-2
+15. 热井水位
+16. 轴加出口凝水流量
+17. 主蒸汽流量
+18. 凝水温度
+19. A段母线AB相间电压
+20. B段母线AB相间电压
+21. 主蒸汽母管温度
+22. 主蒸汽压力
+23. 高再出口温度
+24. 过热总减温水流量
+25. 再热总减温水流量
+26. 中压缸一号阀开度
+27. 中压缸二号阀开度
+
+以下三张图分别是权重序列自由估计，平滑约束，平滑约束加形状约束得到的样本外预测结果：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqY05sOVjTaO63k6a0xDncOB2*cjZ*UJa6D*GYzmzUfPHEFksfGeQhtkUPAfbJ.digpJW*nv244wECotXdH*JEUs!/b&bo=Ygc4BAAAAAADB3s!&rf=viewer_4)
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqRFiqD9H3ZNnS9m9wHQRuqxzmh5MhZShSvf46KCUieLT545EwCGuZMQ02mhMyqotSVqBEOPhg6Tr.KF*kafdvvw!/b&bo=Ygc4BAAAAAADF2s!&rf=viewer_4)
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqWUFNw0OcTaSpxESFPemttDUhRO*4TseUPKadkVEgHN1zVi7v1qyQ8TF1pn7uehdsCM5HyoMQq2MddNp1LItdnE!/b&bo=Ygc4BAAAAAADF2s!&rf=viewer_4)
+从结果来看，在大幅度降低预测曲线波动性的条件下，泛化误差只是轻微的上升。但是每一个动作对目标的影响（即系统响应曲线）都可以被合理解释了。下面我们来检验每一个动作上估计出来的系统响应曲线是否符合机理模型。
+
+### 即刻响应组
+1. 发电机功率
+2. 4B循环水泵电流
+3. 4A凝汽器循环冷却水出口温度
+4. 4B凝汽器冷却水出口温度
+5. 汽机低压缸排气温度-1
+6. 汽机低压缸排气温度-2
+7. 热井水位
+8. A段母线AB相间电压
+9. 主蒸汽母管温度
+10. 再热总减温水流量
+11. 中压缸一号阀开度
+12. 中压缸二号阀开度
+
+### 短延时响应组（1.5分钟内响应）
+1. 4A循环水泵变频器转速
+2. 一级工业供热流量
+3. 二级工业供热流量
+4. 4A凝汽器循环冷却水进口温度1
+5. 冷却塔水位
+6. 轴加出口凝水流量
+7. 主蒸汽流量
+8. 凝水温度
+9. B段母线AB相间电压
+10. 主蒸汽压力
+11. 高再出口温度
+
+### 长延时响应组（1.5分钟之后响应）
+1. 4A送风机入口空气温度（5分钟）
+2. 4A循环水泵电流（3分钟）
+3. 循环水泵出口母管压力（5分钟）
+
+### 无影响组
+1. 过热总减温水流量
+
+这样分组，其实还是难以判断算法所给出的系统响应曲线是否反映了物理特性。接下来就一些可以通过经验分辩出来的现象来讨论结果的有效性。
+
+#### 4A送风机入口空气温度
+这是与煤粉混合送入到锅炉进行燃烧的空气温度。它是一个系统外生的控制变量，比较容易分析它与凝汽器真空度之间的关系。这一动作的变化，首先影响锅炉的燃烧强度，继而通过蒸汽压力与温度影响汽轮机转速，最后这一部分流体进入到凝汽器，影响其真空度。这一过程显然是存在一定时长的纯时滞，然后该动作对系统的影响会通过多种热力学传导，而在时间轴上扩散开，所以其容量时滞也是一个相对扁平的状态。基于这些分析，我们可以猜想到目标状态对这一动作的响应曲线。下图则是该算法推算出来的系统响应曲线（镜像对称）。
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqXZzTCsffCVMp50qH4YnKV9YkOhSPR6Spm0AknICoj3JhanpMdSyxTh03fhocIbCmE*KrNiLETdPkrwVCPff6bE!/b&bo=VAY4BAAAAAADB0w!&rf=viewer_4)
+从系统响应曲线来看，送风机入口空气温度的变化大约需要5分钟时间开始影响凝汽器真空度，约7.5分钟时达成最大影响，而10分钟左右影响退出。这一形态是满足这一动作的影响特性的。
+
+#### 一级工业供热流量和二级工业供热流量
+这两个指标是衍生状态，锅炉的负荷同时影响了供热流量和凝汽器真空度，供热流量和凝汽器真空度之间的动作（观测）响应曲线不好说是什么样子的。但是，由于一级工业供热流量和二级工业供热流量等同于同一个指标在两个不同管道上测量到的，除了纯时滞有所差异之外，容量时滞部分应该没有区别。那我们来看一下算法所推算出来的系统响应曲线是否有这一特点呢？
+
+下图为一级工业供热流量的系统响应曲线（镜像对称）：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqaVlczfu94Xk8R9FsD9MD8Jkug*D.ocLXIDPFeQCCE4fFmvT.aXRmOX1egRToPhXSVYyjdkIb0tOplJvYSrWXZg!/b&bo=VAY4BAAAAAADB0w!&rf=viewer_4)
+下图为二级工业供热流量的系统响应曲线（镜像对称）：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqbgu64.IpT5z*KXf7Xu88Nrb.d.87*jBjxGwvGuIVlxFIO.5Kxj*U0TAFOVttAOSH1K1dTxFYXLBVuakFtgdn34!/b&bo=VAY4BAAAAAADF1w!&rf=viewer_4)
+显然，除了前端的纯时滞长度有所区别之外，波形的形态完全一致。这里没有必要关注波形的高度，因为在神经网络中每一个指标还要再乘以不同的常数。而且从纯时滞长度来看，二级工业供热管道上的流量计距离汽轮机要比一级工业供热管道上的流量计近一些，时间上差了15秒左右。
+
+#### 4A循环水泵电流和4B循环水泵电流
+从工艺图上来看，这两台水泵应该是两个支路上对凝汽器灌注冷却水，为蒸汽降温，从而影响凝汽器真空度。由于影响原理一致，只不过管道路程不一样，所以系统响应曲线除了纯时滞不一样外，容量时滞部分应该是相同形态的。可以对比一下算法所推算出来的结果。
+
+下图为4A循环水泵电流响应曲线（镜像对称）：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqXSx47QpzR57VhgFluCxh3YtdW9quoCfR7GEEQT3iq0djunWoxYkHmVcc0VwIIKb7aycNEokyBl21BxpNbXT8cs!/b&bo=VAY4BAAAAAADF1w!&rf=viewer_4)
+下图为4B循环水泵电流响应曲线（镜像对称）：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqWu29fYjvRtpl.P*ImbiWSxWIJcJEzG42hV*bdvjrAux70tdqjMmcEUOV5mUY9gA1e0DVFWf0iOOhSotFkxk5SQ!/b&bo=VAY4BAAAAAADF1w!&rf=viewer_4)
+
+显然，4B循环水泵是安装在主路上的，而4A循环水泵是安装在旁路上的。4B水泵的变化在15s之内就快速体现在凝汽器真空度之上了。而4A水泵的变化需要穿过较长的管道，控制动作有一些扩散了，3分钟到3分钟45秒的时间内发挥作用。流体传导过程中，管路越长，累积的流体越多，控制动作的影响就会在时间轴上发散的越厉害。在延迟三分钟的传输管道上4A循环水泵控制动作响应曲线只发散了三个时间单位，说明它的基本特性与4B水泵是相同的。
+
+#### 4A凝汽器循环冷却水出口温度和4B凝汽器循环冷却水出口温度
+这一点是在两个不同的支路上测量冷却水温度，响应曲线的形态应该是基本一致。我们看一看算法所估计出来的曲线是否如此。
+
+下图是4A凝汽器循环冷却水出口温度的响应曲线（镜像对称）：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqa6F3AACECw58dk2mB5tPOXl5PBH1VBHCmgYkA4jS3BfdTR2a2B4TkpnIT56ZzsmGqW1HFo9LpeayCvzJYQJPJk!/b&bo=VAY4BAAAAAADF1w!&rf=viewer_4)
+下图是4B凝汽器循环冷却水出口温度的响应曲线（镜像对称）：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqUrx*fyZow8849IIrpCLFgP1mDIbeQCjbbIS9S5lDQHx0k6I0Tps5DwsFEdJol31zNX3katKdfeNMZkFd9jByKE!/b&bo=VAY4BAAAAAADF1w!&rf=viewer_4)
+
+注意第一张图里面的权重曲线以红色曲线为准，蓝色曲线为引导线。我们发现二者估计出来的形态是完全一致的。其实这一结果还有另一个重要的意义，就是说，在模型估计问题中，如果添加了两列基本一致的数据，那么由于多重共线性的问题，这两列数据的参数估计结果方差就会无限大，根本得不到稳定解。而本算法所提出的形状约束解决了这一问题。由于过程工业系统中指标间的复杂衍生关系，多重共线性问题几乎无法避免，所以通过形状约束将无穷多个解压缩到唯一解也是本算法所特有的一种优点。
+
+#### 汽机低压缸排气温度-1和汽机低压缸排气温度-2
+同上，我们来看一下这两个并列指标的系统响应曲线估计情况。
+
+下图是汽机低压缸排气温度-1的系统响应曲线（镜像对称）：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqb.XmCEAv8O43BZiDWSj1iG9v7GrBx9DWWBzbTfZmtEki5ApYRT50Uv.jSyhBASOAFoKmQVtxNuMTQwn4A5RbpM!/b&bo=VAY4BAAAAAADF1w!&rf=viewer_4)
+下图是汽机低压缸排气温度-2的系统响应曲线（镜像对称）：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqa1BgTlDJdh9EIx7ZqaBEX.mKg*Wb73yfa66a0GQQXaY2EOm3pjE3e6vgTCflWiZciZ10BAoD6sNUrpqjlVWeB4!/b&bo=VAY4BAAAAAADF1w!&rf=viewer_4)
+
+形态基本一致，并且低压缸排气会直接进入到凝汽器，同时它也是凝汽器的主要处理对象，所以没有纯时滞，影响权重也很大。
+
+#### 中压缸一号阀开度和中压缸二号阀开度
+情况与前面机组对齐指标是类似的。不再赘述。
+
+### 结论
+用我们能够从机理上比较准确的推导出来的响应曲线形态与算法所给出的响应曲线对比来看，这一算法在复杂过程工业控制系统上仿真出来的结果具有很高的准确性，同时也解决了过程工业系统多指标耦合所带来的多重共线性难题。该算法所推演出来的系统响应曲线可以作为评价系统物理特性的基准。
+比如我们可以通过对比锅炉主蒸汽的温度，压力，流量的响应曲线，如下图：
+
+温度：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqUyYppEFN2vWKyozh9s2AUhodv5*eS1mZx2sjWKuboBqHQwZP9*qJ.*lx26lTFwYGVPFvGoC7GaeocbDv3G7Cjw!/b&bo=VAY4BAAAAAADF1w!&rf=viewer_4)
+
+压力：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqcRRPY1RRvGAM9yRAtTGqEKrU5OTOUQSqMA.FCjB653iLFWXTe4lfMAeupsBZDIJ.Qf3XRa2glF6BBPk683jHZE!/b&bo=VAY4BAAAAAADF1w!&rf=viewer_4)
+
+流量：
+![image](http://m.qpic.cn/psc?/V12Fwrzs47WSuj/bqQfVz5yrrGYSXMvKr.cqWWrT*ywzb*jy1nWNDXQUizglEJB9sTCZObW3tF13pGTiIsMAYieNaOmf7oeQuPxydcnOf2vdXrMsA8z0hLqaF4!/b&bo=VAY4BAAAAAADF1w!&rf=viewer_4)
+
+温度，压力，流量，这三类指标的惯性逐步增大，传导速度逐步降低，这就是锅炉系统的一种特性。
+
 ## 强制形状估计的优点
 
 一旦我们在强制权重序列形状的条件下完成了仿真系统构建，那么这会带来极大的好处。包括如下几点：
